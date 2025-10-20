@@ -1,0 +1,5 @@
+# AWS Configuration
+aws_region     = "us-east-1"
+project_name   = "aws-s3-kb-chatbot"
+environment    = "dev"
+embedding_model = "amazon.titan-embed-text-v1"

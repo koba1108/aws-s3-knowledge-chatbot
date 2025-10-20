@@ -30,3 +30,19 @@ go.work.sum
 # Editor/IDE
 # .idea/
 # .vscode/
+
+# Frontend build artifacts
+frontend/dist/
+frontend/.angular/
+frontend/node_modules/
+
+# Backend binary
+backend/server
+
+# Terraform
+infrastructure/.terraform/
+infrastructure/.terraform.lock.hcl
+infrastructure/terraform.tfstate
+infrastructure/terraform.tfstate.backup
+infrastructure/*.tfvars
+!infrastructure/terraform.tfvars.example

@@ -47,18 +47,33 @@ resource "aws_opensearchserverless_access_policy" "access_policy" {
 
   policy = jsonencode([
     {
-      Description = "PoC: principals can manage and read/write documents"
+      Description = "Data access for OpenSearch Serverless (setup)"
       Principal   = var.principals
       Rules = [
+        # コレクション単位の操作（テンプレ/エイリアス等もここにぶら下がる）
         {
           ResourceType = "collection"
           Resource     = ["collection/${var.collection_name}"]
-          Permission = [
+          Permission   = [
+            "aoss:DescribeCollectionItems",
+            "aoss:CreateCollectionItems",
+            "aoss:UpdateCollectionItems",
+            "aoss:DeleteCollectionItems"
+          ]
+        },
+        # インデックス／ドキュメントの操作
+        {
+          ResourceType = "index"
+          Resource     = ["index/${var.collection_name}/*"]
+          Permission   = [
             "aoss:CreateIndex",
             "aoss:UpdateIndex",
             "aoss:DescribeIndex",
             "aoss:ReadDocument",
-            "aoss:WriteDocument"
+            "aoss:WriteDocument",
+            "aoss:DeleteIndex",
+            "aoss:RestoreSnapshot",
+            "aoss:DescribeSnapshot"
           ]
         }
       ]

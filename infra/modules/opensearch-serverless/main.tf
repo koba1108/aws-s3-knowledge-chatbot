@@ -26,6 +26,7 @@ resource "aws_opensearchserverless_security_policy" "encryption" {
 resource "aws_opensearchserverless_security_policy" "network" {
   name = "knowledge-oss-network"
   type = "network"
+
   policy = jsonencode([
     {
       Description = "PoC: allow public access to the collection"
@@ -33,6 +34,10 @@ resource "aws_opensearchserverless_security_policy" "network" {
         {
           ResourceType = "collection"
           Resource     = ["collection/${var.collection_name}"]
+        },
+        {
+          "ResourceType" = "dashboard"
+          "Resource"     = ["collection/${var.collection_name}"]
         }
       ]
       AllowFromPublic = var.allow_public
@@ -54,7 +59,7 @@ resource "aws_opensearchserverless_access_policy" "access_policy" {
         {
           ResourceType = "collection"
           Resource     = ["collection/${var.collection_name}"]
-          Permission   = [
+          Permission = [
             "aoss:DescribeCollectionItems",
             "aoss:CreateCollectionItems",
             "aoss:UpdateCollectionItems",
@@ -65,7 +70,7 @@ resource "aws_opensearchserverless_access_policy" "access_policy" {
         {
           ResourceType = "index"
           Resource     = ["index/${var.collection_name}/*"]
-          Permission   = [
+          Permission = [
             "aoss:CreateIndex",
             "aoss:UpdateIndex",
             "aoss:DescribeIndex",

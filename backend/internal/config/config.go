@@ -1,13 +1,32 @@
 package config
 
-import "github.com/caarlos0/env/v11"
+import (
+	"fmt"
+
+	"github.com/caarlos0/env/v11"
+)
 
 type Config struct {
-	AwsRegion       string `env:"AWS_REGION,required"`
-	KnowledgeBaseID string `env:"KNOWLEDGE_BASE_ID,required"`
-	DataSourceID    string `env:"DATA_SOURCE_ID,required"`
+	AwsRegion         string `env:"AWS_REGION,required"`
+	KnowledgeBaseID   string `env:"KNOWLEDGE_BASE_ID,required"`
+	KnowledgeS3Bucket string `env:"KNOWLEDGE_S3_BUCKET,required"`
+	KnowledgeS3Prefix string `env:"KNOWLEDGE_S3_PREFIX,required"`
+	DataSourceID      string `env:"DATA_SOURCE_ID,required"`
+	Port              int    `env:"PORT" envDefault:"8080"`
 }
 
 func NewConfig() (*Config, error) {
 	return env.ParseAs[*Config]()
+}
+
+func NewConfigMust() *Config {
+	cfg, err := NewConfig()
+	if err != nil {
+		panic(fmt.Sprintf("failed to load config: %v", err))
+	}
+	return cfg
+}
+
+func (c *Config) GetAddress() string {
+	return fmt.Sprintf(":%d", c.Port)
 }

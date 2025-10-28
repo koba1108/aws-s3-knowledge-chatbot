@@ -16,7 +16,8 @@ type Config struct {
 }
 
 func NewConfig() (*Config, error) {
-	return env.ParseAs[*Config]()
+	cfg, err := env.ParseAs[Config]()
+	return &cfg, err
 }
 
 func NewConfigMust() *Config {

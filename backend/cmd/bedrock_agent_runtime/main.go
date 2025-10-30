@@ -22,7 +22,7 @@ func main() {
 
 	// bedrockAgentRuntimeで必須なエンドポイントを設定
 	e.GET("/ping", bh.Ping)
-	e.GET("/invocations", bh.InvokeStream)
+	e.POST("/invocations", bh.InvokeStream)
 
 	if err := e.Run(cfg.GetAddress()); err != nil {
 		panic(err)

@@ -41,19 +41,6 @@ func (r *bedrockAgentRuntimeRepository) RetrieveAndGenerateStream(ctx context.Co
 			KnowledgeBaseConfiguration: &agtypes.KnowledgeBaseRetrieveAndGenerateConfiguration{
 				KnowledgeBaseId: lo.ToPtr(r.config.KnowledgeBaseID),
 				ModelArn:        lo.ToPtr(claudeSonnet45ModelArn),
-				GenerationConfiguration: &agtypes.GenerationConfiguration{
-					// 必要に応じて設定を追加
-				},
-				RetrievalConfiguration: &agtypes.KnowledgeBaseRetrievalConfiguration{
-					// 必要に応じて設定を追加
-				},
-			},
-			ExternalSourcesConfiguration: &agtypes.ExternalSourcesRetrieveAndGenerateConfiguration{
-				Sources: []agtypes.ExternalSource{{
-					S3Location: &agtypes.S3ObjectDoc{
-						Uri: lo.ToPtr(fmt.Sprintf("s3://%s/%s", r.config.KnowledgeS3Bucket, r.config.KnowledgeS3Prefix)),
-					}},
-				},
 			},
 		},
 	})

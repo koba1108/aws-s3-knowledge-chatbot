@@ -1,3 +1,11 @@
+data "aws_caller_identity" "me" {}
+
+locals {
+  caller_arn      = data.aws_caller_identity.me.arn
+  caller_parts    = split("/", local.caller_arn)
+  caller_username = local.caller_parts[length(local.caller_parts) - 1]
+}
+
 data "aws_iam_policy_document" "kb_assume" {
   statement {
     actions = ["sts:AssumeRole"]
@@ -28,6 +36,13 @@ data "aws_iam_policy_document" "kb_access" {
     sid       = "AOSSApiAccess"
     actions   = ["aoss:APIAccessAll"]
     resources = ["*"] # API権限はリソース指定不可のためワイルドカード
+  }
+  statement {
+    sid = "BedrockInvokeEmbedding"
+    actions = ["bedrock:InvokeModel"]
+    resources = [
+      "arn:aws:bedrock:ap-northeast-1::foundation-model/amazon.titan-embed-text-v2:0"
+    ]
   }
 }
 
@@ -62,4 +77,38 @@ resource "aws_iam_policy" "oss_dashboard_access" {
       }
     ]
   })
+}
+
+# --- RAG 実行用ポリシー（実行ユーザー/ロール向け） ---
+data "aws_iam_policy_document" "rag_runtime" {
+  statement {
+    sid     = "KBReadRAG"
+    effect  = "Allow"
+    actions = [
+      "bedrock:RetrieveAndGenerate",
+      "bedrock:RetrieveAndGenerateStream",
+    ]
+    resources = ["*"] # 後で KB ARN に絞るとより安全
+  }
+
+  statement {
+    sid     = "InvokeGenModel"
+    effect  = "Allow"
+    actions = [
+      "bedrock:InvokeModel",
+      "bedrock:InvokeModelWithResponseStream",
+    ]
+    resources = ["*"] # 後で foundation-model ARN に絞るとより安全
+  }
+}
+
+resource "aws_iam_policy" "rag_runtime" {
+  name   = "${var.project}-rag-runtime"
+  policy = data.aws_iam_policy_document.rag_runtime.json
+}
+
+# Terraform 実行中の IAM ユーザー（caller_username）に付与
+resource "aws_iam_user_policy_attachment" "attach_rag_to_caller" {
+  user       = local.caller_username
+  policy_arn = aws_iam_policy.rag_runtime.arn
 }

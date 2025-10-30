@@ -32,7 +32,18 @@ func (h *bedrockAgentRuntimeHandler) Ping(c *gin.Context) {
 }
 
 func (h *bedrockAgentRuntimeHandler) InvokeStream(c *gin.Context) {
-	channel, err := h.bedrockAgentRuntimeUsecase.InvokeStream(c, c.Query("session_id"), c.Query("query"))
+	type req struct {
+		SessionID string `json:"session_id"`
+		Query     string `json:"query" binding:"required"`
+	}
+	var r req
+	if err := c.ShouldBindJSON(&r); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+	channel, err := h.bedrockAgentRuntimeUsecase.InvokeStream(c, r.SessionID, r.Query)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": err.Error(),

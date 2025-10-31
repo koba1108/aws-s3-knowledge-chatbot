@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"aws-s3-knowledge-chatbot/backend/internal/transport/http/sse"
 	"aws-s3-knowledge-chatbot/backend/internal/usecase"
 	"context"
 	"io"
@@ -43,16 +44,12 @@ func (h *bedrockAgentRuntimeHandler) InvokeStream(c *gin.Context) {
 		return
 	}
 
-	// --- SSE headers ---
-	c.Writer.Header().Set("Content-Type", "text/event-stream")
-	c.Writer.Header().Set("Cache-Control", "no-cache")
-	c.Writer.Header().Set("Connection", "keep-alive")
-	// Nginxなどでバッファされないように
-	c.Writer.Header().Set("X-Accel-Buffering", "no")
+	em := sse.NewEmitter(c)
+	stopHeartbeat := em.StartHeartbeat(10 * time.Second)
+	defer stopHeartbeat()
 
-	// --- Context: クライアント切断 + サーバ側タイムアウトの両立 ---
 	reqCtx := c.Request.Context()
-	srvCtx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	srvCtx, cancel := context.WithTimeout(c.Request.Context(), 60*time.Second)
 	defer cancel()
 
 	// 片方が Done になったら終わるように束ねる
@@ -67,49 +64,28 @@ func (h *bedrockAgentRuntimeHandler) InvokeStream(c *gin.Context) {
 		}
 	}()
 
-	// --- 呼び出し ---
 	ch, err := h.bedrockAgentRuntimeUsecase.InvokeStream(ctx, r.SessionID, r.Query)
 	if err != nil {
-		// SSEとしてエラーを返す（JSON 500ではSSE接続が閉じるだけで原因が見えない）
-		c.SSEvent("error", gin.H{"message": err.Error()})
-		c.Writer.Flush()
+		_ = em.EmitError(err.Error(), sse.WithSessionID(r.SessionID))
 		return
 	}
 
-	// --- ストリーミングループ ---
-	heartbeat := time.NewTicker(10 * time.Second)
-	defer heartbeat.Stop()
-
-	c.Stream(func(io.Writer) bool {
+	sentStarted := false
+	c.Stream(func(_ io.Writer) bool {
 		select {
 		case <-ctx.Done():
-			// 終了イベント（任意）
-			c.SSEvent("done", gin.H{
-				"sessionID": r.SessionID,
-				"reason":    ctx.Err().Error(),
-			})
+			_ = em.EmitMessageEnd(sse.FinishError, sse.WithSessionID(r.SessionID))
 			return false
-
 		case msg, ok := <-ch:
 			if !ok {
-				// チャネルが閉じられた＝サーバ側完了
-				c.SSEvent("done", gin.H{
-					"sessionID": r.SessionID,
-					"reason":    "completed",
-				})
+				_ = em.EmitMessageEnd(sse.FinishCompleted, sse.WithSessionID(r.SessionID))
 				return false
 			}
-			c.SSEvent("message", gin.H{
-				"sessionID": r.SessionID,
-				"content":   msg,
-			})
-			return true
-
-		case <-heartbeat.C:
-			// 無音対策でハートビート
-			// SSEのコメント行はクライアントからは無視されるが接続維持に効く
-			_, _ = c.Writer.Write([]byte(":heartbeat\n\n"))
-			c.Writer.Flush()
+			if !sentStarted {
+				_ = em.EmitMessageStart(sse.RoleAssistant, sse.WithSessionID(r.SessionID))
+				sentStarted = true
+			}
+			_ = em.EmitMessageDelta(msg, sse.WithSessionID(r.SessionID))
 			return true
 		}
 	})

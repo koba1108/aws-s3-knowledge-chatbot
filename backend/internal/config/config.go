@@ -10,6 +10,7 @@ type Config struct {
 	AwsRegion       string `env:"AWS_REGION,required"`
 	KnowledgeBaseID string `env:"KNOWLEDGE_BASE_ID,required"`
 	DataSourceID    string `env:"DATA_SOURCE_ID,required"`
+	BedrockModelArn string `env:"BEDROCK_MODEL_ARN,required"`
 	Port            int    `env:"PORT" envDefault:"8080"`
 }
 

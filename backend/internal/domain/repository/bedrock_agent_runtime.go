@@ -7,5 +7,6 @@ import (
 )
 
 type BedrockAgentRuntimeRepository interface {
+	RetrieveAndGenerate(ctx context.Context, sessionID, inputText string) (*bedrockagentruntime.RetrieveAndGenerateOutput, error)
 	RetrieveAndGenerateStream(ctx context.Context, sessionID, inputText string) (*bedrockagentruntime.RetrieveAndGenerateStreamOutput, error)
 }

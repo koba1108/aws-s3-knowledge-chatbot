@@ -11,8 +11,6 @@ import (
 	"github.com/samber/lo"
 )
 
-const claudeSonnet45ModelArn = "anthropic.claude-sonnet-4-5-20250929-v1:0"
-
 type BedrockAgentRuntimeRepository interface {
 	RetrieveAndGenerateStream(ctx context.Context, sessionID, inputText string) (*bedrockagentruntime.RetrieveAndGenerateStreamOutput, error)
 }
@@ -40,12 +38,30 @@ func (r *bedrockAgentRuntimeRepository) RetrieveAndGenerateStream(ctx context.Co
 			Type: agtypes.RetrieveAndGenerateTypeKnowledgeBase,
 			KnowledgeBaseConfiguration: &agtypes.KnowledgeBaseRetrieveAndGenerateConfiguration{
 				KnowledgeBaseId: lo.ToPtr(r.config.KnowledgeBaseID),
-				ModelArn:        lo.ToPtr(claudeSonnet45ModelArn),
+				ModelArn:        lo.ToPtr(r.config.BedrockModelArn),
 			},
 		},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to call RetrieveAndGenerate: %w", err)
+	}
+	return output, nil
+}
+
+func (r *bedrockAgentRuntimeRepository) RetrieveAndGenerate(ctx context.Context, sessionID, inputText string) (*bedrockagentruntime.RetrieveAndGenerateOutput, error) {
+	output, err := r.client.RetrieveAndGenerate(ctx, &bedrockagentruntime.RetrieveAndGenerateInput{
+		SessionId: lo.Ternary(sessionID != "", lo.ToPtr(sessionID), nil),
+		Input:     &agtypes.RetrieveAndGenerateInput{Text: &inputText},
+		RetrieveAndGenerateConfiguration: &agtypes.RetrieveAndGenerateConfiguration{
+			Type: agtypes.RetrieveAndGenerateTypeKnowledgeBase,
+			KnowledgeBaseConfiguration: &agtypes.KnowledgeBaseRetrieveAndGenerateConfiguration{
+				KnowledgeBaseId: lo.ToPtr(r.config.KnowledgeBaseID),
+				ModelArn:        lo.ToPtr(r.config.BedrockModelArn),
+			},
+		},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to call RetrieveAndGenerate (non-stream): %w", err)
 	}
 	return output, nil
 }

@@ -31,8 +31,6 @@ func (u *bedrockAgentRuntimeUsecase) InvokeStream(ctx context.Context, sessionId
 	if err != nil {
 		return nil, err
 	}
-	log.Printf("RetrieveAndGenerateStream SessionId: %+v\n", res.SessionId)
-	log.Printf("RetrieveAndGenerateStream ResultMetadata: %+v\n", res.ResultMetadata)
 
 	stream := res.GetStream()
 	if stream == nil {
@@ -65,7 +63,6 @@ func (u *bedrockAgentRuntimeUsecase) InvokeStream(ctx context.Context, sessionId
 				log.Printf("[stream] unknown event: %T %+v\n", e, e)
 			}
 		}
-		log.Printf("Finished processing RetrieveAndGenerateStream events (count=%d)", cnt)
 	}()
 
 	return outputChan, nil

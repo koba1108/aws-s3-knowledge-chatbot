@@ -138,6 +138,12 @@ func (e *Emitter) EmitMessageDelta(delta string, opts ...EventOption) error {
 	return e.Emit(string(EventMessageDelta), ev, opts...)
 }
 
+// EmitMessageCitation sends "message.citation".
+func (e *Emitter) EmitMessageCitation(refs []CitationReference, opts ...EventOption) error {
+	ev := NewAIMessageCitation(refs, opts...)
+	return e.Emit(string(EventMessageCitation), ev, opts...)
+}
+
 // EmitMessageEnd sends "message.end".
 func (e *Emitter) EmitMessageEnd(reason AIEventFinishReason, opts ...EventOption) error {
 	ev := NewAIMessageEnd(reason, opts...)

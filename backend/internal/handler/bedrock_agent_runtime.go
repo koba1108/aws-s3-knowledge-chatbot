@@ -5,10 +5,12 @@ import (
 	"aws-s3-knowledge-chatbot/backend/internal/usecase"
 	"context"
 	"io"
+	"log"
 	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/oklog/ulid/v2"
 )
 
 type BedrockAgentRuntimeHandler interface {
@@ -70,22 +72,40 @@ func (h *bedrockAgentRuntimeHandler) InvokeStream(c *gin.Context) {
 		return
 	}
 
-	sentStarted := false
+	opts := []sse.EventOption{
+		sse.WithID(ulid.Make().String()),
+		sse.WithSessionID(r.SessionID),
+	}
+
 	c.Stream(func(_ io.Writer) bool {
 		select {
 		case <-ctx.Done():
-			_ = em.EmitMessageEnd(sse.FinishError, sse.WithSessionID(r.SessionID))
+			_ = em.EmitMessageEnd(sse.FinishError, opts...)
 			return false
-		case msg, ok := <-ch:
+
+		case evt, ok := <-ch:
 			if !ok {
-				_ = em.EmitMessageEnd(sse.FinishCompleted, sse.WithSessionID(r.SessionID))
+				_ = em.EmitMessageEnd(sse.FinishCompleted, opts...)
 				return false
 			}
-			if !sentStarted {
-				_ = em.EmitMessageStart(sse.RoleAssistant, sse.WithSessionID(r.SessionID))
-				sentStarted = true
+
+			switch e := evt.(type) {
+			case sse.AIMessageStart:
+				_ = em.EmitMessageStart(e.Message.Role, opts...)
+			case sse.AIMessageDelta:
+				_ = em.EmitMessageDelta(e.Delta, opts...)
+			case sse.AIMessageCitation:
+				_ = em.EmitMessageCitation(e.Refs, opts...)
+				return false
+			case sse.AIMessageEnd:
+				_ = em.EmitMessageEnd(e.FinishReason, opts...)
+				return false
+			case sse.AIError:
+				_ = em.EmitError(e.Message, opts...)
+				return false
+			default:
+				log.Printf("[sse] unknown event type: %T\n", e)
 			}
-			_ = em.EmitMessageDelta(msg, sse.WithSessionID(r.SessionID))
 			return true
 		}
 	})

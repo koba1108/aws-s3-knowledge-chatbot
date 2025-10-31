@@ -1,5 +1,10 @@
 package sse
 
+type AIEvent interface {
+	GetBase() *AIBaseEvent
+	GetType() AIEventType
+}
+
 type Role string
 
 const (
@@ -12,10 +17,11 @@ const (
 type AIEventType string
 
 const (
-	EventMessageStart AIEventType = "message.start" // メッセージ開始（ヘッダ）
-	EventMessageDelta AIEventType = "message.delta" // トークン／チャンク差分
-	EventMessageEnd   AIEventType = "message.end"   // メッセージ終了（メタ／finish reason）
-	EventError        AIEventType = "error"         // エラー（非ストリーム時も共通）
+	EventMessageStart    AIEventType = "message.start"    // メッセージ開始（ヘッダ）
+	EventMessageDelta    AIEventType = "message.delta"    // トークン／チャンク差分
+	EventMessageEnd      AIEventType = "message.end"      // メッセージ終了（メタ／finish reason）
+	EventMessageCitation AIEventType = "message.citation" // 引用情報（RAG参照）
+	EventError           AIEventType = "error"            // エラー（非ストリーム時も共通）
 )
 
 type AIEventFinishReason string
@@ -47,10 +53,26 @@ type AIMessageStart struct {
 	Message AIMessageHeader `json:"message"`
 }
 
+func (s AIMessageStart) GetBase() *AIBaseEvent {
+	return &s.AIBaseEvent
+}
+
+func (s AIMessageStart) GetType() AIEventType {
+	return s.Type
+}
+
 type AIMessageDelta struct {
 	AIBaseEvent
 	Type  AIEventType `json:"type"`  // "message.delta"
 	Delta string      `json:"delta"` // テキスト差分
+}
+
+func (d AIMessageDelta) GetBase() *AIBaseEvent {
+	return &d.AIBaseEvent
+}
+
+func (d AIMessageDelta) GetType() AIEventType {
+	return d.Type
 }
 
 type AIMessageEnd struct {
@@ -59,12 +81,49 @@ type AIMessageEnd struct {
 	FinishReason AIEventFinishReason `json:"finish_reason"` // "completed" など
 }
 
+func (e AIMessageEnd) GetBase() *AIBaseEvent {
+	return &e.AIBaseEvent
+}
+
+func (e AIMessageEnd) GetType() AIEventType {
+	return e.Type
+}
+
+// CitationReference holds reference metadata and content/snippet.
+type CitationReference struct {
+	Text   string `json:"text,omitempty"`   // snippet of referenced text
+	Source string `json:"source,omitempty"` // e.g., s3://bucket/key or URL
+}
+
+// AIMessageCitation represents a citation event in SSE stream.
+type AIMessageCitation struct {
+	AIBaseEvent
+	Type AIEventType         `json:"type"` // "message.citation"
+	Refs []CitationReference `json:"refs"`
+}
+
+func (c AIMessageCitation) GetBase() *AIBaseEvent {
+	return &c.AIBaseEvent
+}
+
+func (c AIMessageCitation) GetType() AIEventType {
+	return c.Type
+}
+
 type AIError struct {
 	AIBaseEvent
 	Type      AIEventType `json:"type"`
 	Message   string      `json:"message"`
 	Code      string      `json:"code,omitempty"`      // e.g. "AccessDenied"
 	Retryable bool        `json:"retryable,omitempty"` // 再試行ヒント
+}
+
+func (e AIError) GetBase() *AIBaseEvent {
+	return &e.AIBaseEvent
+}
+
+func (e AIError) GetType() AIEventType {
+	return e.Type
 }
 
 // EventOption is a functional option to set optional fields on AIBaseEvent.
@@ -146,6 +205,21 @@ func NewAssistantStart(opts ...EventOption) AIMessageStart {
 
 func NewAssistantDelta(delta string, opts ...EventOption) AIMessageDelta {
 	return NewAIMessageDelta(delta, opts...)
+}
+
+// NewAIMessageCitation creates a message.citation event.
+// Required: refs
+// Optional: use EventOption (WithID, WithSessionID)
+func NewAIMessageCitation(refs []CitationReference, opts ...EventOption) AIMessageCitation {
+	ev := AIMessageCitation{
+		AIBaseEvent: AIBaseEvent{},
+		Type:        EventMessageCitation,
+		Refs:        refs,
+	}
+	for _, opt := range opts {
+		opt(&ev.AIBaseEvent)
+	}
+	return ev
 }
 
 func NewAssistantEnd(reason AIEventFinishReason, opts ...EventOption) AIMessageEnd {

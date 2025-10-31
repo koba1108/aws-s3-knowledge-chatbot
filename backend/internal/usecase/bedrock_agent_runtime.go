@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"aws-s3-knowledge-chatbot/backend/internal/domain/repository"
+	"aws-s3-knowledge-chatbot/backend/internal/transport/http/sse"
 	"context"
 	"fmt"
 	"log"
@@ -11,7 +12,7 @@ import (
 )
 
 type BedrockAgentRuntimeUsecase interface {
-	InvokeStream(ctx context.Context, sessionId, query string) (<-chan string, error)
+	InvokeStream(ctx context.Context, sessionId, query string) (<-chan sse.AIEvent, error)
 }
 
 type bedrockAgentRuntimeUsecase struct {
@@ -26,7 +27,7 @@ func NewBedrockAgentRuntimeUsecase(
 	}
 }
 
-func (u *bedrockAgentRuntimeUsecase) InvokeStream(ctx context.Context, sessionId, query string) (<-chan string, error) {
+func (u *bedrockAgentRuntimeUsecase) InvokeStream(ctx context.Context, sessionId, query string) (<-chan sse.AIEvent, error) {
 	res, err := u.bedrockAgentRuntimeRepository.RetrieveAndGenerateStream(ctx, sessionId, query)
 	if err != nil {
 		return nil, err
@@ -40,7 +41,7 @@ func (u *bedrockAgentRuntimeUsecase) InvokeStream(ctx context.Context, sessionId
 		return nil, fmt.Errorf("stream error: %w", err)
 	}
 
-	outputChan := make(chan string)
+	outputChan := make(chan sse.AIEvent)
 
 	go func() {
 		defer func() {
@@ -54,9 +55,16 @@ func (u *bedrockAgentRuntimeUsecase) InvokeStream(ctx context.Context, sessionId
 			cnt++
 			switch e := ev.(type) {
 			case *atypes.RetrieveAndGenerateStreamResponseOutputMemberOutput:
-				outputChan <- lo.FromPtr(e.Value.Text)
+				if e.Value.Text != nil {
+					outputChan <- sse.NewAssistantDelta(lo.FromPtr(e.Value.Text))
+				}
 			case *atypes.RetrieveAndGenerateStreamResponseOutputMemberCitation:
-				log.Printf("[stream] citation: %+v\n", e.Value)
+				outputChan <- sse.NewAIMessageCitation(lo.Map(e.Value.RetrievedReferences, func(ref atypes.RetrievedReference, _ int) sse.CitationReference {
+					return sse.CitationReference{
+						Text:   lo.FromPtr(ref.Content.Text),
+						Source: lo.FromPtr(ref.Location.S3Location.Uri),
+					}
+				}))
 			case *atypes.RetrieveAndGenerateStreamResponseOutputMemberGuardrail:
 				log.Printf("[stream] guardrail: %+v\n", e.Value)
 			default:

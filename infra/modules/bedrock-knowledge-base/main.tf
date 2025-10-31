@@ -28,6 +28,8 @@ resource "aws_bedrockagent_data_source" "s3" {
   knowledge_base_id = aws_bedrockagent_knowledge_base.main.id
   name              = "${var.project}-kb-s3"
 
+  depends_on = [aws_bedrockagent_knowledge_base.main]
+
   data_source_configuration {
     type = "S3"
     s3_configuration {

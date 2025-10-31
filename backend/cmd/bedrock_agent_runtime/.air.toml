@@ -1,0 +1,22 @@
+# ルートと一時ディレクトリ
+root = "."
+tmp_dir = "tmp"
+
+[build]
+# 監視対象
+include_ext = ["go", "mod", "sum"]
+exclude_dir = ["tmp", "vendor", ".git", ".idea", ".vscode"]
+
+# ビルドコマンド（ルートからターゲットパスを指定）
+cmd = "sh -c 'CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -ldflags=\"-s -w\" -o ./tmp/server ./backend/cmd/bedrock_agent_runtime'"
+
+# ← ここを “実行ファイルのパス” にする（シェル禁止）
+bin = "./tmp/server"
+
+# 変更検知後の振る舞い
+delay = 100
+stop_on_error = true
+kill_delay = 500
+
+[log]
+time = true

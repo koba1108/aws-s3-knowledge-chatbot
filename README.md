@@ -29,7 +29,7 @@ PUT /knowledge-base-index
         "index": true
       },
       "metadata": {
-        "type": "object"
+        "type": "text"
       }
     }
   }

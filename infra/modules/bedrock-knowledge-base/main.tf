@@ -25,8 +25,9 @@ resource "aws_bedrockagent_knowledge_base" "main" {
 }
 
 resource "aws_bedrockagent_data_source" "s3" {
-  knowledge_base_id = aws_bedrockagent_knowledge_base.main.id
-  name              = "${var.project}-kb-s3"
+  knowledge_base_id    = aws_bedrockagent_knowledge_base.main.id
+  name                 = "${var.project}-kb-s3"
+  data_deletion_policy = "RETAIN"
 
   depends_on = [aws_bedrockagent_knowledge_base.main]
 
